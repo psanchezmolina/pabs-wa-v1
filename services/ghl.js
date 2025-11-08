@@ -150,7 +150,33 @@ async function updateMessageStatus(client, messageId, status, errorMessage = nul
     };
   }
 
-  await ghlRequest(client, 'PUT', `/conversations/messages/${messageId}/status`, payload);
+  logger.info('Attempting to update message status', {
+    messageId,
+    status,
+    payload,
+    locationId: client.location_id,
+    conversationProviderId: client.conversation_provider_id
+  });
+
+  try {
+    const response = await ghlRequest(client, 'PUT', `/conversations/messages/${messageId}/status`, payload);
+    logger.info('Message status updated successfully', {
+      messageId,
+      status,
+      responseStatus: response.status
+    });
+    return response;
+  } catch (error) {
+    logger.error('Failed to update message status', {
+      messageId,
+      status,
+      error: error.message,
+      errorCode: error.response?.status,
+      errorData: error.response?.data,
+      payload
+    });
+    throw error;
+  }
 }
 
 module.exports = {
