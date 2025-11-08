@@ -26,9 +26,9 @@ async function handleGHLWebhook(req, res) {
       return res.status(400).json({ error: 'Invalid payload', details: validation });
     }
 
-    const { locationId, contactId, messageId, message, phone } = req.body;
+    const { locationId, contactId, messageId, body: messageText } = req.body;
 
-    logger.info('✅ GHL webhook validated', { locationId, contactId, messageId });
+    logger.info('✅ GHL webhook validated', { locationId, contactId, messageId, messageText });
     
     // Buscar cliente
     const client = await getClientByLocationId(locationId);
@@ -46,7 +46,7 @@ async function handleGHLWebhook(req, res) {
         client.instance_name,
         client.instance_apikey,
         waNumber,
-        message
+        messageText
       );
       
       // Marcar como entregado en GHL

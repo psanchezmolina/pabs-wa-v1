@@ -156,10 +156,10 @@ N8N_AUTH_HEADER=Bearer xxx
 
 **Proceso:**
 
-1. Validar payload (rechazar si `type === "OutboundMessage"`)
+1. Validar payload (solo procesar si `direction === "outbound"`, usar campo `body` para el texto)
 2. Obtener cliente por `location_id` de Supabase
 3. Obtener teléfono de contacto desde GHL API
-4. Enviar a Evolution API con retraso calculado
+4. Enviar a Evolution API
 5. Marcar como entregado en GHL (o manejar fallo)
 
 **Manejo de errores:** 4 reintentos, notificar al admin en caso de fallo, verificar si el contacto tiene WhatsApp

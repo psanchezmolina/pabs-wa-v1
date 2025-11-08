@@ -1,6 +1,6 @@
 function validateGHLPayload(body) {
-  // phone es opcional ya que se puede obtener del contacto vía API
-  const required = ['locationId', 'messageId', 'contactId', 'message'];
+  // GHL usa 'body' para el texto del mensaje
+  const required = ['locationId', 'messageId', 'contactId', 'body'];
 
   for (const field of required) {
     if (!body[field]) {
@@ -8,8 +8,9 @@ function validateGHLPayload(body) {
     }
   }
 
-  if (body.type === 'OutboundMessage') {
-    return { valid: false, reason: 'OutboundMessage ignored' };
+  // Solo procesar mensajes OUTBOUND (salientes de GHL hacia WhatsApp)
+  if (body.direction !== 'outbound') {
+    return { valid: false, reason: 'Not an outbound message' };
   }
 
   return { valid: true };
