@@ -6,17 +6,29 @@ const ghlAPI = require('../services/ghl');
 const evolutionAPI = require('../services/evolution');
 
 async function handleGHLWebhook(req, res) {
+  // Log COMPLETO del webhook para debugging
+  logger.info('🔔 GHL WEBHOOK RECEIVED', {
+    body: req.body,
+    headers: req.headers,
+    method: req.method
+  });
+
   try {
     // Validar payload
     const validation = validateGHLPayload(req.body);
     if (!validation.valid) {
-      logger.warn('Invalid GHL payload', { reason: validation.reason || validation.missing });
+      logger.warn('Invalid GHL payload', {
+        reason: validation.reason || validation.missing,
+        receivedFields: Object.keys(req.body),
+        bodyType: req.body.type,
+        fullBody: req.body
+      });
       return res.status(400).json({ error: 'Invalid payload', details: validation });
     }
-    
+
     const { locationId, contactId, messageId, message, phone } = req.body;
-    
-    logger.info('GHL webhook received', { locationId, contactId, messageId });
+
+    logger.info('✅ GHL webhook validated', { locationId, contactId, messageId });
     
     // Buscar cliente
     const client = await getClientByLocationId(locationId);

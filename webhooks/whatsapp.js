@@ -7,6 +7,13 @@ const evolutionAPI = require('../services/evolution');
 const openaiAPI = require('../services/openai');
 
 async function handleWhatsAppWebhook(req, res) {
+  // Log COMPLETO del webhook para debugging
+  logger.info('📱 WHATSAPP WEBHOOK RECEIVED', {
+    body: req.body,
+    headers: req.headers,
+    method: req.method
+  });
+
   try {
     // Validar payload
     const validation = validateWhatsAppPayload(req.body);
@@ -14,13 +21,13 @@ async function handleWhatsAppWebhook(req, res) {
       logger.warn('Invalid WhatsApp payload', { reason: validation.reason || validation.missing });
       return res.status(400).json({ error: 'Invalid payload', details: validation });
     }
-    
+
     const { instance } = req.body;
     const messageData = req.body.data;
-    
-    logger.info('WhatsApp webhook received', { 
-      instance, 
-      remoteJid: messageData.key.remoteJid 
+
+    logger.info('✅ WhatsApp webhook validated', {
+      instance,
+      remoteJid: messageData.key.remoteJid
     });
     
     // Buscar cliente
