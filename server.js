@@ -104,6 +104,13 @@ app.get('/auth/credentials2/callback', async (req, res) => {
   }
   
   try {
+    // Log de parámetros de entrada
+    logger.info('OAuth callback initiated', {
+      locationId,
+      hasCode: !!code,
+      redirectUri: config.GHL_REDIRECT_URI
+    });
+
     // Intercambiar code por tokens
     const response = await axios.post('https://services.leadconnectorhq.com/oauth/token', {
       client_id: config.GHL_CLIENT_ID,
@@ -112,23 +119,36 @@ app.get('/auth/credentials2/callback', async (req, res) => {
       code,
       redirect_uri: config.GHL_REDIRECT_URI
     });
-    
+
     const { access_token, refresh_token, expires_in } = response.data;
-    
+
     // Guardar en Supabase
     await updateGHLTokens(locationId, access_token, refresh_token, expires_in);
-    
+
     logger.info('OAuth completed', { locationId });
-    
+
     res.send(`
       <h1>✅ Conexión exitosa</h1>
       <p>GHL conectado para location: ${locationId}</p>
       <p>Puedes cerrar esta ventana.</p>
     `);
-    
+
   } catch (error) {
-    logger.error('OAuth callback error', { error: error.message });
-    res.status(500).send('Error en OAuth: ' + error.message);
+    // Log detallado del error
+    const errorDetails = {
+      message: error.message,
+      status: error.response?.status,
+      data: error.response?.data,
+      headers: error.response?.headers
+    };
+
+    logger.error('OAuth callback error', errorDetails);
+
+    res.status(500).send(`
+      <h1>❌ Error en OAuth</h1>
+      <p>Error: ${error.message}</p>
+      <p>Detalles: ${JSON.stringify(error.response?.data || {})}</p>
+    `);
   }
 });
 
