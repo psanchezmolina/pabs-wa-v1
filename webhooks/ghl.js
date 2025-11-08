@@ -32,34 +32,55 @@ async function handleGHLWebhook(req, res) {
     
     // Buscar cliente
     const client = await getClientByLocationId(locationId);
-    
+
+    logger.info('Client found', {
+      locationId,
+      instanceName: client.instance_name,
+      hasApiKey: !!client.instance_apikey
+    });
+
     // Obtener contacto para sacar teléfono
+    logger.info('Fetching contact from GHL', { contactId });
     const contact = await ghlAPI.getContact(client, contactId);
     const contactPhone = contact.phone;
-    
+
+    logger.info('Contact retrieved', { contactId, contactPhone });
+
     // Formatear número WhatsApp
     const waNumber = contactPhone.replace(/^\+/, '') + '@s.whatsapp.net';
-    
+
     try {
       // Enviar mensaje a WhatsApp
+      logger.info('Sending to Evolution API', {
+        instanceName: client.instance_name,
+        waNumber,
+        messageLength: messageText.length
+      });
+
       await evolutionAPI.sendText(
         client.instance_name,
         client.instance_apikey,
         waNumber,
         messageText
       );
-      
+
+      logger.info('✅ Message sent to WhatsApp successfully', { locationId, waNumber });
+
       // Marcar como entregado en GHL
+      logger.info('Updating message status in GHL', { messageId });
       await ghlAPI.updateMessageStatus(client, messageId, 'delivered');
-      
-      logger.info('Message sent to WhatsApp', { locationId, contactPhone });
-      
+
+      logger.info('✅ Message marked as delivered in GHL', { messageId });
+
       return res.status(200).json({ success: true });
-      
+
     } catch (sendError) {
-      logger.error('Failed to send to WhatsApp', { 
-        locationId, 
-        error: sendError.message 
+      logger.error('❌ Failed to send to WhatsApp', {
+        locationId,
+        error: sendError.message,
+        errorCode: sendError.response?.status,
+        errorData: sendError.response?.data,
+        stack: sendError.stack
       });
       
       // Verificar si tiene WhatsApp
