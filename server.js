@@ -16,6 +16,18 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Log TODAS las peticiones entrantes
+app.use((req, res, next) => {
+  console.log(`\n${'='.repeat(60)}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log(`Headers:`, req.headers);
+  if (req.body && Object.keys(req.body).length > 0) {
+    console.log(`Body:`, JSON.stringify(req.body, null, 2));
+  }
+  console.log('='.repeat(60));
+  next();
+});
+
 // Webhooks
 app.post('/webhook/ghl', handleGHLWebhook);
 app.post('/webhook/whatsapp', handleWhatsAppWebhook);
@@ -91,7 +103,7 @@ app.get('/oauth/ghl/connect', (req, res) => {
     `&redirect_uri=${encodeURIComponent(config.GHL_REDIRECT_URI)}` +
     `&scope=${encodeURIComponent(scopes)}` +
     `&state=${location_id}`;
-  
+
   res.redirect(authUrl);
 });
 

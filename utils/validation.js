@@ -28,21 +28,24 @@ function validateGHLPayload(body) {
 }
 
 function validateWhatsAppPayload(body) {
+  // Validar campo instance (crítico para multi-tenant)
+  if (!body.instance) {
+    return { valid: false, missing: 'instance' };
+  }
+
   if (!body.data || !body.data.key) {
     return { valid: false, missing: 'data.key' };
   }
-  
+
   const required = ['remoteJid', 'id'];
   for (const field of required) {
     if (!body.data.key[field]) {
       return { valid: false, missing: `data.key.${field}` };
     }
   }
-  
-  if (body.data.key.fromMe) {
-    return { valid: false, reason: 'Own message ignored' };
-  }
-  
+
+  // Removido filtro fromMe - procesamos todos los mensajes
+
   return { valid: true };
 }
 

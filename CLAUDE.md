@@ -8,6 +8,12 @@
 
 **Philosophy:** Simple, funcional, robusto. Sin sobre-ingeniería.
 
+**Multi-Tenant Architecture:**
+- **Un solo servidor** maneja múltiples clientes/instancias
+- **Un solo endpoint de webhook** (`/webhook/whatsapp`) para TODAS las instancias de Evolution API
+- Cada instancia se identifica por el campo `instance` en el payload del webhook
+- La configuración de cada cliente (tokens GHL, API keys, etc.) se almacena en Supabase indexada por `instance_name` y `location_id`
+
 ---
 
 ## Tech Stack
@@ -129,8 +135,11 @@ N8N_AUTH_HEADER=Bearer xxx
 
 ### Webhooks
 
-- `POST /webhook/ghl` - Recibe mensajes salientes de GHL
-- `POST /webhook/whatsapp` - Recibe mensajes de Evolution API
+- `POST /webhook/ghl` - Recibe mensajes salientes de GHL (uno por cada `location_id`)
+- `POST /webhook/whatsapp` - **Webhook único** que recibe mensajes de TODAS las instancias de Evolution API
+  - Identifica la instancia mediante el campo `instance` en el payload
+  - Busca automáticamente la configuración del cliente en Supabase usando `instance_name`
+  - Soporta múltiples instancias simultáneamente sin necesidad de endpoints diferentes
 
 ### OAuth
 
@@ -170,7 +179,7 @@ N8N_AUTH_HEADER=Bearer xxx
 
 **Proceso:**
 
-1. Validar payload (ignorar si `fromMe === true`)
+1. Validar payload (procesa todos los mensajes, incluyendo propios)
 2. Obtener cliente por `instance_name` de Supabase
 3. Detectar tipo de mensaje: texto/audio/imagen
 4. Procesar multimedia si es necesario (Whisper/Vision)
@@ -282,11 +291,38 @@ const description = await openaiAPI.analyzeImage(media.base64);
 
 ## Development Workflow
 
+### Local Development
+
 1. **Iniciar servidor:** `npm start` or `npm run dev`
 2. **Revisar logs:** `tail -f combined.log` o salida de consola
 3. **Probar webhooks:** Usar herramientas como ngrok para pruebas locales
 4. **Revisar salud:** `curl http://localhost:3000/health`
 5. **Monitorear uso:** Vigilar logs de Winston en busca de errores
+
+### Production Deployment (Easypanel/Contabo VPS)
+
+**Infraestructura actual:**
+- **Hosting:** Contabo VPS
+- **Panel de control:** Easypanel
+- **Contenedor:** Docker
+- **URL del servidor:** Se configura en Easypanel
+
+**Acceso a logs en producción:**
+1. Acceder a Easypanel web interface
+2. Seleccionar el proyecto/servicio
+3. Ver logs en tiempo real en la sección "Logs"
+4. Los logs de Winston se escriben a archivos (`combined.log`, `error.log`) dentro del contenedor
+
+**Configuración de webhooks en Evolution API:**
+- **IMPORTANTE:** Usar el MISMO webhook para TODAS las instancias
+- Webhook único: `https://tu-dominio.com/webhook/whatsapp`
+- Configurar cada instancia de Evolution API para que apunte a este mismo endpoint
+- El servidor identifica automáticamente la instancia usando el campo `instance` del payload
+- Ejemplo: Si el payload tiene `"instance": "MasterAgente"`, el servidor busca ese cliente en la BD
+
+**Verificar deployment:**
+- Health check: `https://tu-dominio.com/health`
+- Debe retornar estado de Supabase, Evolution API y OpenAI
 
 ---
 

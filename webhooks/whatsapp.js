@@ -7,6 +7,9 @@ const evolutionAPI = require('../services/evolution');
 const openaiAPI = require('../services/openai');
 
 async function handleWhatsAppWebhook(req, res) {
+  // Console.log directo para asegurar visibilidad
+  console.log('\n🚀🚀🚀 WHATSAPP WEBHOOK HANDLER CALLED 🚀🚀🚀\n');
+
   // Log COMPLETO del webhook para debugging
   logger.info('📱 WHATSAPP WEBHOOK RECEIVED', {
     body: JSON.stringify(req.body, null, 2),
@@ -32,10 +35,21 @@ async function handleWhatsAppWebhook(req, res) {
       fromMe: messageData.key.fromMe
     });
     
-    // Buscar cliente
+    // Buscar cliente (crítico para multi-tenant)
     logger.info('🔍 Step 2: Searching for client by instance name...', { instance });
     const client = await getClientByInstanceName(instance);
+
+    if (!client) {
+      logger.error('❌ Client not found in database', { instance });
+      return res.status(404).json({
+        error: 'Client not found',
+        instance,
+        message: 'Esta instancia no está configurada en la base de datos'
+      });
+    }
+
     logger.info('✅ Step 2 COMPLETE: Client found', {
+      instance,
       location_id: client.location_id,
       conversation_provider_id: client.conversation_provider_id
     });
