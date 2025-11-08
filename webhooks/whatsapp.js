@@ -7,11 +7,14 @@ const evolutionAPI = require('../services/evolution');
 const openaiAPI = require('../services/openai');
 
 async function handleWhatsAppWebhook(req, res) {
-  // Console.log directo para asegurar visibilidad
-  console.log('\n🚀🚀🚀 WHATSAPP WEBHOOK HANDLER CALLED 🚀🚀🚀\n');
+  // Detectar si es el número de debug para logging
+  const debugNumber = '34660722687@s.whatsapp.net';
+  const isDebugNumber = req.body?.data?.key?.remoteJid === debugNumber;
 
-  // Log COMPLETO del webhook para debugging
-  logger.info('📱 WHATSAPP WEBHOOK RECEIVED', {
+  // Solo logear si es el número de debug
+  const log = isDebugNumber ? logger : { info: () => {}, warn: () => {}, error: logger.error };
+
+  log.info('📱 WHATSAPP WEBHOOK RECEIVED', {
     body: JSON.stringify(req.body, null, 2),
     headers: req.headers,
     method: req.method
@@ -19,24 +22,24 @@ async function handleWhatsAppWebhook(req, res) {
 
   try {
     // Validar payload
-    logger.info('🔍 Step 1: Validating payload...');
+    log.info('🔍 Step 1: Validating payload...');
     const validation = validateWhatsAppPayload(req.body);
     if (!validation.valid) {
-      logger.warn('❌ Invalid WhatsApp payload', { reason: validation.reason || validation.missing });
+      log.warn('❌ Invalid WhatsApp payload', { reason: validation.reason || validation.missing });
       return res.status(400).json({ error: 'Invalid payload', details: validation });
     }
 
     const { instance } = req.body;
     const messageData = req.body.data;
 
-    logger.info('✅ Step 1 COMPLETE: WhatsApp webhook validated', {
+    log.info('✅ Step 1 COMPLETE: WhatsApp webhook validated', {
       instance,
       remoteJid: messageData.key.remoteJid,
       fromMe: messageData.key.fromMe
     });
     
     // Buscar cliente (crítico para multi-tenant)
-    logger.info('🔍 Step 2: Searching for client by instance name...', { instance });
+    log.info('🔍 Step 2: Searching for client by instance name...', { instance });
     const client = await getClientByInstanceName(instance);
 
     if (!client) {
@@ -48,7 +51,7 @@ async function handleWhatsAppWebhook(req, res) {
       });
     }
 
-    logger.info('✅ Step 2 COMPLETE: Client found', {
+    log.info('✅ Step 2 COMPLETE: Client found', {
       instance,
       location_id: client.location_id,
       conversation_provider_id: client.conversation_provider_id
@@ -59,24 +62,24 @@ async function handleWhatsAppWebhook(req, res) {
     const userName = messageData.pushName;
     const messageId = messageData.key.id;
 
-    logger.info('📋 Extracted data', { phone, userName, messageId });
+    log.info('📋 Extracted data', { phone, userName, messageId });
 
     // Detectar tipo de mensaje
-    logger.info('🔍 Step 3: Detecting message type...');
+    log.info('🔍 Step 3: Detecting message type...');
     let messageText = '';
     let contentType = 'text';
     
     if (messageData.message.conversation) {
       contentType = 'text';
       messageText = messageData.message.conversation;
-      logger.info('📝 Text message detected (conversation)', { messageText });
+      log.info('📝 Text message detected (conversation)', { messageText });
     } else if (messageData.message.extendedTextMessage) {
       contentType = 'text';
       messageText = messageData.message.extendedTextMessage.text;
-      logger.info('📝 Text message detected (extendedTextMessage)', { messageText });
+      log.info('📝 Text message detected (extendedTextMessage)', { messageText });
     } else if (messageData.message.audioMessage) {
       contentType = 'audio';
-      logger.info('🎤 Audio message detected, fetching media...');
+      log.info('🎤 Audio message detected, fetching media...');
 
       // Obtener audio en base64
       const audioData = await evolutionAPI.getMediaBase64(
@@ -84,7 +87,7 @@ async function handleWhatsAppWebhook(req, res) {
         client.instance_apikey,
         messageId
       );
-      logger.info('✅ Audio fetched, transcribing with Whisper...', { mimetype: audioData.mimetype });
+      log.info('✅ Audio fetched, transcribing with Whisper...', { mimetype: audioData.mimetype });
 
       // Transcribir con Whisper
       const transcription = await openaiAPI.transcribeAudio(
@@ -93,11 +96,11 @@ async function handleWhatsAppWebhook(req, res) {
       );
 
       messageText = `audio: ${transcription}`;
-      logger.info('✅ Audio transcribed', { transcription });
+      log.info('✅ Audio transcribed', { transcription });
 
     } else if (messageData.message.imageMessage) {
       contentType = 'image';
-      logger.info('🖼️ Image message detected, fetching media...');
+      log.info('🖼️ Image message detected, fetching media...');
 
       // Obtener imagen en base64
       const imageData = await evolutionAPI.getMediaBase64(
@@ -105,64 +108,64 @@ async function handleWhatsAppWebhook(req, res) {
         client.instance_apikey,
         messageId
       );
-      logger.info('✅ Image fetched, analyzing with Vision...', { mimetype: imageData.mimetype });
+      log.info('✅ Image fetched, analyzing with Vision...', { mimetype: imageData.mimetype });
 
       // Analizar con GPT-4o-mini Vision
       const description = await openaiAPI.analyzeImage(imageData.base64);
 
       const caption = messageData.message.imageMessage.caption || '';
       messageText = `descripcion imagen: ${description}${caption ? ' - ' + caption : ''}`;
-      logger.info('✅ Image analyzed', { description, caption });
+      log.info('✅ Image analyzed', { description, caption });
 
     } else {
-      logger.warn('❌ Unsupported message type', {
+      log.warn('❌ Unsupported message type', {
         messageData: JSON.stringify(messageData.message, null, 2)
       });
       return res.status(200).json({ success: true, ignored: true });
     }
 
-    logger.info('✅ Step 3 COMPLETE: Message processed', { contentType, messageText: messageText.substring(0, 100) });
+    log.info('✅ Step 3 COMPLETE: Message processed', { contentType, messageText: messageText.substring(0, 100) });
     
     // Buscar o crear contacto en GHL
-    logger.info('🔍 Step 4: Searching for contact in GHL...', { phone });
+    log.info('🔍 Step 4: Searching for contact in GHL...', { phone });
     let contactId;
     const searchResult = await ghlAPI.searchContact(client, phone);
-    logger.info('📊 Contact search result', {
+    log.info('📊 Contact search result', {
       total: searchResult.total,
       contacts: searchResult.contacts?.length
     });
 
     if (searchResult.total === 0) {
-      logger.info('➕ Creating new contact...', { userName, phone });
+      log.info('➕ Creating new contact...', { userName, phone });
       const newContact = await ghlAPI.createContact(client, userName, phone);
       contactId = newContact.id;
-      logger.info('✅ Step 4 COMPLETE: Contact created', { contactId, phone });
+      log.info('✅ Step 4 COMPLETE: Contact created', { contactId, phone });
     } else {
       contactId = searchResult.contacts[0].id;
-      logger.info('✅ Step 4 COMPLETE: Contact found', { contactId, phone });
+      log.info('✅ Step 4 COMPLETE: Contact found', { contactId, phone });
     }
 
     // Buscar o crear conversación
-    logger.info('🔍 Step 5: Searching for conversation in GHL...', { contactId });
+    log.info('🔍 Step 5: Searching for conversation in GHL...', { contactId });
     let conversationId;
     const convSearch = await ghlAPI.searchConversation(client, contactId);
-    logger.info('📊 Conversation search result', {
+    log.info('📊 Conversation search result', {
       total: convSearch.total,
       conversations: convSearch.conversations?.length
     });
 
     if (convSearch.total >= 1) {
       conversationId = convSearch.conversations[0].id;
-      logger.info('✅ Step 5 COMPLETE: Conversation found', { conversationId });
+      log.info('✅ Step 5 COMPLETE: Conversation found', { conversationId });
     } else {
-      logger.info('➕ Creating new conversation...', { contactId });
+      log.info('➕ Creating new conversation...', { contactId });
       const newConv = await ghlAPI.createConversation(client, contactId);
       conversationId = newConv.id;
-      logger.info('✅ Step 5 COMPLETE: Conversation created', { conversationId });
+      log.info('✅ Step 5 COMPLETE: Conversation created', { conversationId });
     }
 
     // Subir mensaje a GHL
-    logger.info('🔍 Step 6: Uploading message to GHL...', {
+    log.info('🔍 Step 6: Uploading message to GHL...', {
       conversationId,
       contactId,
       messagePreview: messageText.substring(0, 100)
@@ -175,7 +178,7 @@ async function handleWhatsAppWebhook(req, res) {
       messageText
     );
 
-    logger.info('✅ Step 6 COMPLETE: Message uploaded to GHL successfully!', {
+    log.info('✅ Step 6 COMPLETE: Message uploaded to GHL successfully!', {
       conversationId,
       contactId
     });

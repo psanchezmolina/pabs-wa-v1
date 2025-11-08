@@ -16,15 +16,20 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Log TODAS las peticiones entrantes
+// Log SOLO peticiones del número de debug
 app.use((req, res, next) => {
-  console.log(`\n${'='.repeat(60)}`);
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  console.log(`Headers:`, req.headers);
-  if (req.body && Object.keys(req.body).length > 0) {
-    console.log(`Body:`, JSON.stringify(req.body, null, 2));
+  const debugNumber = '34660722687@s.whatsapp.net';
+  const isDebugNumber = req.body?.data?.key?.remoteJid === debugNumber;
+
+  if (isDebugNumber) {
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+    console.log(`Headers:`, req.headers);
+    if (req.body && Object.keys(req.body).length > 0) {
+      console.log(`Body:`, JSON.stringify(req.body, null, 2));
+    }
+    console.log('='.repeat(60));
   }
-  console.log('='.repeat(60));
   next();
 });
 
