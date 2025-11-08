@@ -139,7 +139,10 @@ async function sendInboundMessage(client, conversationId, contactId, message) {
 }
 
 async function updateMessageStatus(client, messageId, status, errorMessage = null) {
-  const payload = { status };
+  const payload = {
+    status,
+    conversationProviderId: client.conversation_provider_id
+  };
 
   // Solo incluir error si el status es de fallo
   if (status !== 'delivered' && status !== 'read' && errorMessage) {
