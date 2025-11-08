@@ -77,11 +77,17 @@ async function handleGHLWebhook(req, res) {
 
       logger.info('✅ Message sent to WhatsApp successfully', { locationId, waNumber });
 
-      // Marcar como entregado en GHL
-      logger.info('Updating message status in GHL', { messageId });
-      await ghlAPI.updateMessageStatus(client, messageId, 'delivered');
-
-      logger.info('✅ Message marked as delivered in GHL', { messageId });
+      // Intentar marcar como entregado en GHL (no crítico si falla)
+      try {
+        logger.info('Updating message status in GHL', { messageId });
+        await ghlAPI.updateMessageStatus(client, messageId, 'delivered');
+        logger.info('✅ Message marked as delivered in GHL', { messageId });
+      } catch (statusError) {
+        logger.warn('⚠️ Could not update message status (message sent successfully)', {
+          messageId,
+          error: statusError.message
+        });
+      }
 
       return res.status(200).json({ success: true });
 
