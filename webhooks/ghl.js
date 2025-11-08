@@ -111,10 +111,10 @@ async function handleGHLWebhook(req, res) {
 
       logger.info('WhatsApp verification result', {
         contactPhone,
-        hasWhatsApp: !!hasWhatsApp
+        hasWhatsApp
       });
 
-      if (!hasWhatsApp) {
+      if (hasWhatsApp === false) {
         logger.info('Number does not have WhatsApp - notifying in GHL conversation', {
           contactId
         });

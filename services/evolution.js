@@ -28,7 +28,7 @@ async function sendText(instanceName, apiKey, number, text) {
 
 async function checkWhatsAppNumber(instanceName, apiKey, phone) {
   const cleanPhone = phone.replace(/^\+/, '');
-  
+
   try {
     const response = await withRetry(() =>
       axios.post(
@@ -44,11 +44,21 @@ async function checkWhatsAppNumber(instanceName, apiKey, phone) {
         }
       )
     );
-    
-    return response.data;
+
+    // Verificar si el número tiene WhatsApp
+    const result = response.data?.message?.[0];
+    const hasWhatsApp = result?.exists === true;
+
+    logger.info('WhatsApp number check', {
+      phone: cleanPhone,
+      exists: hasWhatsApp,
+      rawResult: result
+    });
+
+    return hasWhatsApp;
   } catch (error) {
     logger.warn('Failed to check WhatsApp number', { phone, error: error.message });
-    return null;
+    return false; // Asumir que no tiene WhatsApp si falla
   }
 }
 
