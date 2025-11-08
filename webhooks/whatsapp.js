@@ -126,23 +126,51 @@ async function handleWhatsAppWebhook(req, res) {
 
     log.info('✅ Step 3 COMPLETE: Message processed', { contentType, messageText: messageText.substring(0, 100) });
     
-    // Buscar o crear contacto en GHL
+    // Buscar o crear contacto en GHL (estrategia de 3 niveles)
     log.info('🔍 Step 4: Searching for contact in GHL...', { phone });
     let contactId;
-    const searchResult = await ghlAPI.searchContact(client, phone);
-    log.info('📊 Contact search result', {
+
+    // NIVEL 1: Buscar con formato completo (con +)
+    let searchResult = await ghlAPI.searchContact(client, phone);
+    log.info('📊 Contact search result (level 1)', {
       total: searchResult.total,
-      contacts: searchResult.contacts?.length
+      format: 'with +'
     });
 
+    // NIVEL 2: Si no encuentra, buscar con formato alternativo
     if (searchResult.total === 0) {
-      log.info('➕ Creating new contact...', { userName, phone });
-      const newContact = await ghlAPI.createContact(client, userName, phone);
-      contactId = newContact.id;
-      log.info('✅ Step 4 COMPLETE: Contact created', { contactId, phone });
-    } else {
+      const cleanPhone = phone.replace(/\D+/g, ''); // Solo dígitos
+      log.info('🔍 Trying alternative phone format...', { cleanPhone });
+      searchResult = await ghlAPI.searchContact(client, cleanPhone);
+      log.info('📊 Contact search result (level 2)', {
+        total: searchResult.total,
+        format: 'digits only'
+      });
+    }
+
+    if (searchResult.total > 0) {
       contactId = searchResult.contacts[0].id;
       log.info('✅ Step 4 COMPLETE: Contact found', { contactId, phone });
+    } else {
+      // NIVEL 3: Crear contacto (con fallback de duplicado)
+      log.info('➕ Creating new contact...', { userName, phone });
+      try {
+        const newContact = await ghlAPI.createContact(client, userName, phone);
+        contactId = newContact.id;
+        log.info('✅ Step 4 COMPLETE: Contact created', { contactId, phone });
+      } catch (createError) {
+        // Si falla por duplicado, GHL nos da el contactId en el error
+        if (createError.response?.status === 400 &&
+            createError.response?.data?.meta?.contactId) {
+          contactId = createError.response.data.meta.contactId;
+          log.info('✅ Step 4 COMPLETE: Contact exists (from duplicate error)', {
+            contactId,
+            matchingField: createError.response.data.meta.matchingField
+          });
+        } else {
+          throw createError;
+        }
+      }
     }
 
     // Buscar o crear conversación
