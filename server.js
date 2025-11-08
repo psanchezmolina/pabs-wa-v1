@@ -89,7 +89,7 @@ app.get('/oauth/ghl/connect', (req, res) => {
 });
 
 // OAuth: Callback
-app.get('/auth/ghl/callback', async (req, res) => {
+app.get('/auth/credentials2/callback', async (req, res) => {
   const { code, state: locationId } = req.query;
   
   if (!code || !locationId) {

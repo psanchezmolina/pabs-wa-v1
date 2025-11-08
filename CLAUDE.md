@@ -85,7 +85,7 @@ SUPABASE_KEY=eyJxxx...
 # GHL OAuth
 GHL_CLIENT_ID=xxx
 GHL_CLIENT_SECRET=xxx
-GHL_REDIRECT_URI=https://domain.com/auth/ghl/callback
+GHL_REDIRECT_URI=https://domain.com/auth/credentials2/callback
 
 # OpenAI (global key)
 OPENAI_API_KEY=sk-xxx
@@ -135,7 +135,7 @@ N8N_AUTH_HEADER=Bearer xxx
 ### OAuth
 
 - `GET /oauth/ghl/connect?location_id=XXX` - Inicia flujo OAuth
-- `GET /auth/ghl/callback` - Handler de callback de OAuth
+- `GET /auth/credentials2/callback` - Handler de callback de OAuth
 
 ### Health
 
