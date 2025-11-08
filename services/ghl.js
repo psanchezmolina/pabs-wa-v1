@@ -194,6 +194,35 @@ async function updateMessageStatus(client, messageId, status, errorMessage = nul
   }
 }
 
+async function addTags(client, contactId, tags) {
+  logger.info('Adding tags to contact', {
+    contactId,
+    tags,
+    locationId: client.location_id
+  });
+
+  try {
+    const response = await ghlRequest(client, 'POST', `/contacts/${contactId}/tags`, {
+      tags
+    });
+    logger.info('Tags added successfully', {
+      contactId,
+      tags,
+      responseStatus: response.status
+    });
+    return response;
+  } catch (error) {
+    logger.error('Failed to add tags', {
+      contactId,
+      tags,
+      error: error.message,
+      errorCode: error.response?.status,
+      errorData: error.response?.data
+    });
+    throw error;
+  }
+}
+
 module.exports = {
   getContact,
   searchContact,
@@ -202,5 +231,6 @@ module.exports = {
   createConversation,
   sendInboundMessage,
   sendOutboundMessage,
-  updateMessageStatus
+  updateMessageStatus,
+  addTags
 };

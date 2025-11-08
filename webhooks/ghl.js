@@ -141,6 +141,17 @@ async function handleGHLWebhook(req, res) {
         } else {
           logger.warn('No conversation found to send notification', { contactId });
         }
+
+        // Añadir tag "no-wa" al contacto
+        try {
+          await ghlAPI.addTags(client, contactId, ['no-wa']);
+          logger.info('✅ Tag "no-wa" added to contact', { contactId });
+        } catch (tagError) {
+          logger.error('❌ Failed to add tag to contact', {
+            contactId,
+            error: tagError.message
+          });
+        }
       }
 
       // No notificar al admin por ahora (requiere ADMIN_INSTANCE_APIKEY)
