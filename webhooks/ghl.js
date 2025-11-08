@@ -26,10 +26,13 @@ async function handleGHLWebhook(req, res) {
       return res.status(400).json({ error: 'Invalid payload', details: validation });
     }
 
-    const { locationId, contactId, messageId, body: messageText } = req.body;
+    const { locationId, contactId, messageId } = req.body;
+
+    // El texto puede venir como 'body' o 'message'
+    const messageText = req.body.body || req.body.message;
 
     logger.info('✅ GHL webhook validated', { locationId, contactId, messageId, messageText });
-    
+
     // Buscar cliente
     const client = await getClientByLocationId(locationId);
 
@@ -39,12 +42,20 @@ async function handleGHLWebhook(req, res) {
       hasApiKey: !!client.instance_apikey
     });
 
-    // Obtener contacto para sacar teléfono
-    logger.info('Fetching contact from GHL', { contactId });
-    const contact = await ghlAPI.getContact(client, contactId);
-    const contactPhone = contact.phone;
+    // Obtener teléfono del contacto
+    let contactPhone;
 
-    logger.info('Contact retrieved', { contactId, contactPhone });
+    if (req.body.phone) {
+      // El webhook nuevo trae el teléfono directamente
+      contactPhone = req.body.phone;
+      logger.info('Phone from webhook', { contactPhone });
+    } else {
+      // El webhook antiguo requiere obtenerlo de GHL API
+      logger.info('Fetching contact from GHL', { contactId });
+      const contact = await ghlAPI.getContact(client, contactId);
+      contactPhone = contact.phone;
+      logger.info('Contact retrieved', { contactId, contactPhone });
+    }
 
     // Formatear número WhatsApp
     const waNumber = contactPhone.replace(/^\+/, '') + '@s.whatsapp.net';

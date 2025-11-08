@@ -1,6 +1,6 @@
 function validateGHLPayload(body) {
-  // GHL usa 'body' para el texto del mensaje
-  const required = ['locationId', 'messageId', 'contactId', 'body'];
+  // Campos requeridos básicos
+  const required = ['locationId', 'messageId', 'contactId'];
 
   for (const field of required) {
     if (!body[field]) {
@@ -8,8 +8,16 @@ function validateGHLPayload(body) {
     }
   }
 
-  // Solo procesar mensajes OUTBOUND (salientes de GHL hacia WhatsApp)
-  if (body.direction !== 'outbound') {
+  // El texto del mensaje puede venir como 'body' o 'message'
+  if (!body.body && !body.message) {
+    return { valid: false, missing: 'body or message' };
+  }
+
+  // Solo procesar mensajes OUTBOUND
+  // Puede ser: direction === 'outbound' O type === 'SMS'
+  const isOutbound = body.direction === 'outbound' || body.type === 'SMS';
+
+  if (!isOutbound) {
     return { valid: false, reason: 'Not an outbound message' };
   }
 
