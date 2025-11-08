@@ -138,6 +138,18 @@ async function sendInboundMessage(client, conversationId, contactId, message) {
   });
 }
 
+async function sendOutboundMessage(client, conversationId, contactId, message) {
+  await ghlRequest(client, 'POST', '/conversations/messages/inbound', {
+    type: 'SMS',
+    message,
+    conversationId,
+    direction: 'outbound',
+    conversationProviderId: client.conversation_provider_id,
+    contactId,
+    locationId: client.location_id
+  });
+}
+
 async function updateMessageStatus(client, messageId, status, errorMessage = null) {
   const payload = {
     status,
@@ -189,5 +201,6 @@ module.exports = {
   searchConversation,
   createConversation,
   sendInboundMessage,
+  sendOutboundMessage,
   updateMessageStatus
 };
