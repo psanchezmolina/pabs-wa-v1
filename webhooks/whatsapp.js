@@ -199,7 +199,12 @@ async function handleWhatsAppWebhook(req, res) {
       stack: error.stack
     });
 
-    return res.status(500).json({ error: 'Internal server error', details: error.message });
+    // IMPORTANTE: Siempre devolver 200 para evitar que Evolution API reintente
+    return res.status(200).json({
+      success: false,
+      error: error.message,
+      note: 'Error logged but returning 200 to prevent retries'
+    });
   }
 }
 

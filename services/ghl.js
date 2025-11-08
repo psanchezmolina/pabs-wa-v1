@@ -66,7 +66,20 @@ async function ghlRequest(client, method, path, data = null) {
     requestConfig.data = data;
   }
 
-  return withRetry(() => axios(requestConfig));
+  try {
+    return await withRetry(() => axios(requestConfig));
+  } catch (error) {
+    logger.error('GHL API request failed', {
+      method,
+      path,
+      data,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      responseData: error.response?.data,
+      message: error.message
+    });
+    throw error;
+  }
 }
 
 // Funciones específicas GHL
