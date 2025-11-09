@@ -79,11 +79,11 @@ async function handleGHLWebhook(req, res) {
 
       // Intentar marcar como entregado en GHL (no crítico si falla)
       try {
-        logger.info('Updating message status in GHL', { messageId });
+        logger.debug('Attempting to update message status in GHL', { messageId });
         await ghlAPI.updateMessageStatus(client, messageId, 'delivered');
-        logger.info('✅ Message marked as delivered in GHL', { messageId });
+        logger.debug('✅ Message marked as delivered in GHL', { messageId });
       } catch (statusError) {
-        logger.warn('⚠️ Could not update message status (message sent successfully)', {
+        logger.debug('Could not update message status (expected for non-provider messages)', {
           messageId,
           error: statusError.message
         });

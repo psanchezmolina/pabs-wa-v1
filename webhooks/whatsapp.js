@@ -15,9 +15,11 @@ async function handleWhatsAppWebhook(req, res) {
   const log = isDebugNumber ? logger : { info: () => {}, warn: () => {}, error: logger.error };
 
   log.info('📱 WHATSAPP WEBHOOK RECEIVED', {
-    body: JSON.stringify(req.body, null, 2),
-    headers: req.headers,
-    method: req.method
+    instance: req.body?.instance,
+    event: req.body?.event,
+    remoteJid: req.body?.data?.key?.remoteJid,
+    fromMe: req.body?.data?.key?.fromMe,
+    messageType: req.body?.data?.messageType
   });
 
   try {

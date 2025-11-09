@@ -83,15 +83,20 @@ async function ghlRequest(client, method, path, data = null) {
   try {
     return await withRetry(() => axios(requestConfig));
   } catch (error) {
-    logger.error('GHL API request failed', {
-      method,
-      path,
-      data,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      responseData: error.response?.data,
-      message: error.message
-    });
+    // No loguear errores 403 en update message status (esperados para mensajes no-provider)
+    const isStatusUpdateError = path.includes('/messages/') && path.includes('/status') && error.response?.status === 403;
+
+    if (!isStatusUpdateError) {
+      logger.error('GHL API request failed', {
+        method,
+        path,
+        data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        responseData: error.response?.data,
+        message: error.message
+      });
+    }
     throw error;
   }
 }
@@ -179,31 +184,12 @@ async function updateMessageStatus(client, messageId, status, errorMessage = nul
     };
   }
 
-  logger.info('Attempting to update message status', {
-    messageId,
-    status,
-    payload,
-    locationId: client.location_id,
-    conversationProviderId: client.conversation_provider_id
-  });
-
   try {
     const response = await ghlRequest(client, 'PUT', `/conversations/messages/${messageId}/status`, payload);
-    logger.info('Message status updated successfully', {
-      messageId,
-      status,
-      responseStatus: response.status
-    });
     return response;
   } catch (error) {
-    logger.error('Failed to update message status', {
-      messageId,
-      status,
-      error: error.message,
-      errorCode: error.response?.status,
-      errorData: error.response?.data,
-      payload
-    });
+    // No loguear aquí - se maneja en el webhook handler
+    // Error 403 es esperado para mensajes no creados por el provider
     throw error;
   }
 }
