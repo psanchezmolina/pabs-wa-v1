@@ -130,11 +130,12 @@ async function handleGHLWebhook(req, res) {
         });
 
         if (conversationId) {
-          await ghlAPI.sendOutboundMessage(
+          await ghlAPI.registerMessage(
             client,
             conversationId,
             contactId,
-            'NOTA: El contacto no tiene WhatsApp'
+            'NOTA: El contacto no tiene WhatsApp',
+            'outbound'
           );
 
           logger.info('✅ Notification sent to GHL conversation (outbound)', { conversationId });

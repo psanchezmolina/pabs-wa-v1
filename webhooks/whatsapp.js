@@ -181,23 +181,29 @@ async function handleWhatsAppWebhook(req, res) {
       log.info('✅ Step 5 COMPLETE: Conversation created', { conversationId });
     }
 
-    // Subir mensaje a GHL
-    log.info('🔍 Step 6: Uploading message to GHL...', {
+    // Calcular direction basándose en fromMe
+    const direction = messageData.key.fromMe ? 'outbound' : 'inbound';
+
+    // Registrar mensaje en GHL
+    log.info('🔍 Step 6: Registering message in GHL...', {
       conversationId,
       contactId,
+      direction,
       messagePreview: messageText.substring(0, 100)
     });
 
-    await ghlAPI.sendInboundMessage(
+    await ghlAPI.registerMessage(
       client,
       conversationId,
       contactId,
-      messageText
+      messageText,
+      direction
     );
 
-    log.info('✅ Step 6 COMPLETE: Message uploaded to GHL successfully!', {
+    log.info('✅ Step 6 COMPLETE: Message registered in GHL successfully!', {
       conversationId,
-      contactId
+      contactId,
+      direction
     });
     
     return res.status(200).json({ success: true });

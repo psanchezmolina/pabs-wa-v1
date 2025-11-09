@@ -138,24 +138,12 @@ async function createConversation(client, contactId) {
   return response.data.conversation;
 }
 
-async function sendInboundMessage(client, conversationId, contactId, message) {
+async function registerMessage(client, conversationId, contactId, message, direction) {
   await ghlRequest(client, 'POST', '/conversations/messages/inbound', {
     type: 'SMS',
     message,
     conversationId,
-    direction: 'inbound',
-    conversationProviderId: client.conversation_provider_id,
-    contactId,
-    locationId: client.location_id
-  });
-}
-
-async function sendOutboundMessage(client, conversationId, contactId, message) {
-  await ghlRequest(client, 'POST', '/conversations/messages/inbound', {
-    type: 'SMS',
-    message,
-    conversationId,
-    direction: 'outbound',
+    direction,
     conversationProviderId: client.conversation_provider_id,
     contactId,
     locationId: client.location_id
@@ -241,8 +229,7 @@ module.exports = {
   createContact,
   searchConversation,
   createConversation,
-  sendInboundMessage,
-  sendOutboundMessage,
+  registerMessage,
   updateMessageStatus,
   addTags
 };
