@@ -44,14 +44,17 @@
 │   └── whatsapp.js       # WhatsApp → GHL handler
 ├── services/
 │   ├── supabase.js       # DB client + queries
-│   ├── ghl.js            # GHL API + OAuth auto-refresh
+│   ├── ghl.js            # GHL API + OAuth auto-refresh + caché tokens
 │   ├── evolution.js      # Evolution API wrapper
-│   └── openai.js         # Whisper + Vision
+│   ├── openai.js         # Whisper + Vision
+│   └── cache.js          # Caché en memoria (tokens, contactos, conversaciones)
 ├── utils/
-│   ├── retry.js          # axios-retry config
+│   ├── retry.js          # axios-retry config + timeout global
 │   ├── logger.js         # Winston logger
 │   ├── notifications.js  # Sistema notificaciones con agregación
 │   ├── validation.js     # Payload validation + truncamiento
+│   ├── sanitizer.js      # Redactar datos sensibles en logs
+│   ├── webhookAuth.js    # Validación whitelist de webhooks
 │   └── instanceMonitor.js # Monitor instancias (cada 4h)
 ├── public/                 # QR panel (DO NOT MODIFY)
 └── test/                   # Tests unitarios e integración
@@ -131,6 +134,11 @@ N8N_AUTH_HEADER=Bearer xxx
 
 **Índices:** `location_id`, `instance_name`
 
+**Seguridad:**
+- RLS (Row Level Security) activado
+- Política: "Allow authenticated access" permite acceso con anon key
+- No requiere service_role key
+
 ---
 
 ## API Endpoints
@@ -138,15 +146,21 @@ N8N_AUTH_HEADER=Bearer xxx
 ### Webhooks
 
 - `POST /webhook/ghl` - Recibe mensajes salientes de GHL (uno por cada `location_id`)
+  - **Validación whitelist:** Verifica que `location_id` exista en BD antes de procesar
+  - Rechaza con 403 si `location_id` no está autorizado
 - `POST /webhook/whatsapp` - **Webhook único** que recibe mensajes de TODAS las instancias de Evolution API
   - Identifica la instancia mediante el campo `instance` en el payload
+  - **Validación whitelist:** Verifica que `instance_name` exista en BD antes de procesar
+  - Rechaza con 403 si instancia no está autorizada
   - Busca automáticamente la configuración del cliente en Supabase usando `instance_name`
   - Soporta múltiples instancias simultáneamente sin necesidad de endpoints diferentes
 
 ### OAuth
 
 - `GET /oauth/ghl/connect?location_id=XXX` - Inicia flujo OAuth
+  - **Rate limiting:** 10 intentos cada 15 minutos por IP
 - `GET /auth/credentials2/callback` - Handler de callback de OAuth
+  - **Rate limiting:** 10 intentos cada 15 minutos por IP
 
 ### Health
 
@@ -264,11 +278,15 @@ Validar siempre los payloads de los webhooks antes de procesar (`utils/validatio
 ## Critical Rules
 
 1. **NO MODIFICAR** el directorio `/public` - Panel QR legacy, mantener intacto
-2. **Siempre verificar la expiración del token** - Auto-refresco en `services/ghl.js`
+2. **Siempre verificar la expiración del token** - Auto-refresco en `services/ghl.js` con caché
 3. **Formatear números de WhatsApp correctamente** - `34XXX@s.whatsapp.net`
 4. **Usar clave global de OpenAI** - Ignorar columna `openai_apikey` en BD
 5. **Notificar al admin en errores críticos** - Usar `utils/notifications.js`
 6. **Loguear todos los eventos importantes** - Usar Winston con contexto
+7. **Sanitizar logs sensibles** - NUNCA loguear tokens/keys sin redactar (usar `utils/sanitizer.js`)
+8. **Validar webhooks** - Todos los webhooks pasan por middleware de whitelist (`utils/webhookAuth.js`)
+9. **Usar caché cuando sea posible** - Tokens, contactIds y conversationIds se cachean 1h (`services/cache.js`)
+10. **Timeout en requests externos** - 15s global para prevenir bloqueos indefinidos
 
 ---
 
@@ -277,8 +295,31 @@ Validar siempre los payloads de los webhooks antes de procesar (`utils/validatio
 ### Getting a client
 
 ```javascript
-const client = await getClientByLocationId(locationId); // GHL webhooks
-const client = await getClientByInstanceName(instanceName); // WhatsApp webhooks
+// En webhooks (viene desde middleware con validación whitelist)
+const client = req.client || await getClientByLocationId(locationId); // GHL webhooks
+const client = req.client || await getClientByInstanceName(instanceName); // WhatsApp webhooks
+
+// Directo (sin middleware)
+const client = await getClientByLocationId(locationId);
+const client = await getClientByInstanceName(instanceName);
+```
+
+### Using cache
+
+```javascript
+const { getCachedContactId, setCachedContactId } = require('./services/cache');
+
+// Verificar caché primero
+let contactId = getCachedContactId(locationId, phone);
+
+if (!contactId) {
+  // No en caché, buscar en API
+  const result = await ghlAPI.searchContact(client, phone);
+  contactId = result.contacts[0].id;
+
+  // Cachear para próximas veces
+  setCachedContactId(locationId, phone, contactId);
+}
 ```
 
 ### Calling GHL API
@@ -312,7 +353,24 @@ const description = await openaiAPI.analyzeImage(media.base64);
 ## Known Issues & Caveats
 
 - **Webhook de Evolution API:** Configurar el MISMO webhook para TODAS las instancias: `https://domain.com/webhook/whatsapp`. El servidor identifica automáticamente la instancia por el campo `instance` del payload
-- Los tokens GHL expiran (típicamente 24h) - el auto-refresco maneja esto
+- Los tokens GHL expiran (típicamente 24h) - el auto-refresco con caché maneja esto
+- **Caché en memoria (volátil):**
+  - Tokens GHL, contactIds y conversationIds se cachean 1h en RAM
+  - Se pierden al reiniciar servidor (esto es normal)
+  - Primer mensaje después de reinicio es más lento, siguientes rápidos
+  - Consumo memoria estimado: ~330KB para 150 clientes
+- **Timeout global de 15 segundos:**
+  - Todas las llamadas a APIs externas tienen timeout de 15s
+  - Si una API no responde en 15s → Error timeout
+  - Previene bloqueos indefinidos, puede generar más notificaciones si APIs están lentas
+- **Validación whitelist de webhooks:**
+  - Solo procesa webhooks de `location_id`/`instance_name` que existan en BD
+  - Rechaza con 403 webhooks no autorizados
+  - Loguea intentos sospechosos
+- **RLS en Supabase:**
+  - Row Level Security activado en `clients_details`
+  - Usa política "Allow authenticated access" (funciona con anon key)
+  - No requiere service_role key
 - **Números de teléfono - Formato E.164:**
   - GHL usa formato **E.164 estándar**: `+34660722687` (único formato oficial soportado)
   - WhatsApp envía: `34660722687@s.whatsapp.net`
@@ -365,7 +423,7 @@ const description = await openaiAPI.analyzeImage(media.base64);
 
 ## Testing
 
-**Estado:** 27 tests unitarios implementados y funcionando
+**Estado:** 40+ tests unitarios implementados y funcionando
 
 ### Ejecutar Tests
 
@@ -381,6 +439,9 @@ npm test -- test/unit/**/*  # Solo tests unitarios
 - `validation.test.js` - Validación payloads + truncamiento (11 tests)
 - `notifications.test.js` - Sistema notificaciones (5 tests)
 - `ghl.test.js` - Lógica GHL (token refresh, phone format) (9 tests)
+- `sanitizer.test.js` - Redacción datos sensibles (6 tests) **NUEVO**
+- `cache.test.js` - Caché en memoria (10 tests) **NUEVO**
+- `webhookAuth.test.js` - Validación whitelist (8 tests) **NUEVO**
 
 **⏳ Tests Integración (test/integration/):**
 - `webhooks.test.js` - HTTP endpoints (4 tests preparados, deshabilitados)
