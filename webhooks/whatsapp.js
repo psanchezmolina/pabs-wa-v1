@@ -221,7 +221,10 @@ async function handleWhatsAppWebhook(req, res) {
     await notifyAdmin('WhatsApp Webhook Error', {
       instance_name: req.body?.instance,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      endpoint: '/webhook/whatsapp',
+      remoteJid: req.body?.data?.key?.remoteJid,
+      messageId: req.body?.data?.key?.id
     });
 
     // IMPORTANTE: Siempre devolver 200 para evitar que Evolution API reintente

@@ -219,6 +219,65 @@ app.get('/health', async (req, res) => {
   res.status(statusCode).json(health);
 });
 
+// ============================================================================
+// ERROR HANDLER MIDDLEWARE - Captura global de errores
+// ============================================================================
+
+const { notifyAdmin } = require('./utils/notifications');
+
+// Error handler debe ir DESPUÉS de todas las rutas
+app.use((err, req, res, next) => {
+  logger.error('Unhandled error in Express', {
+    error: err.message,
+    stack: err.stack,
+    method: req.method,
+    url: req.url,
+    body: req.body
+  });
+
+  // Notificar al admin
+  notifyAdmin('Unhandled Express Error', {
+    error: err.message,
+    stack: err.stack,
+    endpoint: `${req.method} ${req.url}`,
+    location_id: req.body?.locationId,
+    instance_name: req.body?.instance
+  });
+
+  // Responder al cliente
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err.message
+  });
+});
+
+// Manejar errores no capturados de Node.js
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception', {
+    error: err.message,
+    stack: err.stack
+  });
+
+  notifyAdmin('Uncaught Exception', {
+    error: err.message,
+    stack: err.stack,
+    endpoint: 'Node.js Process'
+  });
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection', {
+    reason: reason?.message || reason,
+    stack: reason?.stack
+  });
+
+  notifyAdmin('Unhandled Rejection', {
+    error: reason?.message || String(reason),
+    stack: reason?.stack,
+    endpoint: 'Node.js Promise'
+  });
+});
+
 // Evita cerrar el servidor si se están ejecutando flujos
 let server;
 

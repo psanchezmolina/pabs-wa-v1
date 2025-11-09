@@ -47,16 +47,20 @@ async function ensureValidToken(client) {
 
     return access_token;
   } catch (error) {
-    logger.error('Failed to refresh GHL token', { 
-      location_id: client.location_id, 
-      error: error.message 
-    });
-    
-    await notifyAdmin('GHL Token Refresh Failed', {
+    logger.error('Failed to refresh GHL token', {
       location_id: client.location_id,
       error: error.message
     });
-    
+
+    await notifyAdmin('GHL Token Refresh Failed', {
+      location_id: client.location_id,
+      error: error.message,
+      stack: error.stack,
+      endpoint: 'GHL OAuth Token Refresh',
+      errorCode: error.response?.status,
+      errorData: JSON.stringify(error.response?.data)
+    });
+
     throw error;
   }
 }

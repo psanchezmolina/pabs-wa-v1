@@ -155,11 +155,15 @@ async function handleGHLWebhook(req, res) {
         }
       }
 
-      // No notificar al admin por ahora (requiere ADMIN_INSTANCE_APIKEY)
-      // await notifyAdmin('Failed to send WhatsApp message', {
-      //   location_id: locationId,
-      //   error: sendError.message
-      // });
+      await notifyAdmin('Failed to send WhatsApp message', {
+        location_id: locationId,
+        error: sendError.message,
+        stack: sendError.stack,
+        endpoint: '/webhook/ghl',
+        contactId,
+        messageId,
+        phone: contactPhone
+      });
 
       return res.status(500).json({ error: 'Failed to send message' });
     }
@@ -167,11 +171,14 @@ async function handleGHLWebhook(req, res) {
   } catch (error) {
     logger.error('GHL webhook error', { error: error.message, stack: error.stack });
 
-    // No notificar al admin por ahora (requiere ADMIN_INSTANCE_APIKEY)
-    // await notifyAdmin('GHL Webhook Error', {
-    //   location_id: req.body?.locationId,
-    //   error: error.message
-    // });
+    await notifyAdmin('GHL Webhook Error', {
+      location_id: req.body?.locationId,
+      error: error.message,
+      stack: error.stack,
+      endpoint: '/webhook/ghl',
+      contactId: req.body?.contactId,
+      messageId: req.body?.messageId
+    });
 
     return res.status(500).json({ error: 'Internal server error' });
   }
