@@ -18,19 +18,33 @@ async function ensureValidToken(client) {
   }
   
   logger.info('Refreshing GHL token', { location_id: client.location_id });
-  
+
   try {
-    const response = await axios.post('https://services.leadconnectorhq.com/oauth/token', {
+    // GHL requiere application/x-www-form-urlencoded según documentación
+    const params = new URLSearchParams({
       client_id: config.GHL_CLIENT_ID,
       client_secret: config.GHL_CLIENT_SECRET,
       grant_type: 'refresh_token',
-      refresh_token: client.ghl_refresh_token
+      refresh_token: client.ghl_refresh_token,
+      user_type: 'Company',
+      redirect_uri: config.GHL_REDIRECT_URI
     });
-    
+
+    const response = await axios.post(
+      'https://services.leadconnectorhq.com/oauth/token',
+      params,
+      {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded'
+        }
+      }
+    );
+
     const { access_token, refresh_token, expires_in } = response.data;
-    
+
     await updateGHLTokens(client.location_id, access_token, refresh_token, expires_in);
-    
+
     return access_token;
   } catch (error) {
     logger.error('Failed to refresh GHL token', { 
