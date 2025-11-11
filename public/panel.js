@@ -6,6 +6,42 @@
   const output      = document.getElementById('evo-output');
   let locationId;
 
+  // Beta status check
+  locInput.addEventListener('blur', async () => {
+    const lid = locInput.value.trim();
+    if (!lid) {
+      removeBetaMessage();
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/check-beta?locationId=${encodeURIComponent(lid)}`);
+      const data = await res.json();
+
+      if (data.is_beta) {
+        showBetaMessage();
+      } else {
+        removeBetaMessage();
+      }
+    } catch (err) {
+      removeBetaMessage();
+    }
+  });
+
+  function showBetaMessage() {
+    removeBetaMessage(); // Remove if exists
+    const betaMsg = document.createElement('p');
+    betaMsg.id = 'beta-message';
+    betaMsg.style.cssText = 'color: #4CAF50; font-weight: bold; margin-top: 8px;';
+    betaMsg.textContent = 'Bienvenido al programa beta, rey. 😉';
+    locInput.parentNode.insertBefore(betaMsg, locInput.nextSibling);
+  }
+
+  function removeBetaMessage() {
+    const existing = document.getElementById('beta-message');
+    if (existing) existing.remove();
+  }
+
   // Llamada genérica al backend
   async function call(path) {
     if (!locationId) throw new Error('Location ID no definido');

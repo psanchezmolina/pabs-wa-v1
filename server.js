@@ -54,6 +54,23 @@ app.post('/webhook/whatsapp', validateWhatsAppWebhook, handleWhatsAppWebhook);
 // Evolution API envía eventos con el tipo en la ruta (ej: /webhook/whatsapp/messages-upsert)
 app.post('/webhook/whatsapp/*', validateWhatsAppWebhook, handleWhatsAppWebhook);
 
+// Check beta status
+app.get('/api/check-beta', async (req, res) => {
+  const { locationId } = req.query;
+  if (!locationId) {
+    return res.json({ is_beta: false });
+  }
+
+  try {
+    const { getClientByLocationId } = require('./services/supabase');
+    const { isBetaClient } = require('./utils/betaFeatures');
+    const client = await getClientByLocationId(locationId);
+    res.json({ is_beta: isBetaClient(client) });
+  } catch (error) {
+    res.json({ is_beta: false });
+  }
+});
+
 // Legacy proxy genérico (NO MODIFICAR)
 app.all('/api/:action', async (req, res) => {
   const { action } = req.params;
