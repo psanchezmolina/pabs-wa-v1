@@ -40,7 +40,23 @@ async function handleWhatsAppWebhook(req, res) {
       remoteJid: messageData.key.remoteJid,
       fromMe: messageData.key.fromMe
     });
-    
+
+    // Filtrar mensajes de grupos, listas y canales
+    const remoteJid = messageData.key.remoteJid;
+    if (remoteJid.endsWith('@g.us') || remoteJid.endsWith('@lid')) {
+      const messageType = remoteJid.endsWith('@g.us') ? 'grupo' : 'lista/canal';
+      log.info(`⏭️ Mensaje de ${messageType} ignorado`, {
+        instance,
+        remoteJid,
+        messageType
+      });
+      return res.status(200).json({
+        success: true,
+        ignored: true,
+        reason: `Mensajes de ${messageType}s no se procesan`
+      });
+    }
+
     // Obtener cliente (viene de middleware o buscar en BD como fallback)
     log.info('🔍 Step 2: Getting client...', { instance });
     const client = req.client || await getClientByInstanceName(instance);
