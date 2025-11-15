@@ -94,12 +94,14 @@ function splitMessage(message, maxLength = 3500) {
  * Validar payload del webhook del agente
  */
 function validateAgentPayload(body) {
-  const required = ['contact_id', 'location_id'];
+  // Verificar contact_id
+  if (!body.contact_id) {
+    return { valid: false, missing: 'contact_id' };
+  }
 
-  for (const field of required) {
-    if (!body[field]) {
-      return { valid: false, missing: field };
-    }
+  // Verificar location_id (puede venir como location_id directo o como location.id)
+  if (!body.location_id && !body.location?.id) {
+    return { valid: false, missing: 'location_id or location.id' };
   }
 
   if (!body.customData) {

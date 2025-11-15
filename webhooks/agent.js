@@ -26,8 +26,22 @@ async function handleAgentWebhook(req, res) {
       return res.status(400).json({ error: 'Invalid payload', details: validation });
     }
 
-    const { contact_id, location_id, customData, message } = req.body;
+    // Normalizar location_id (GHL envía location.id en lugar de location_id)
+    const contact_id = req.body.contact_id;
+    const location_id = req.body.location_id || req.body.location?.id;
+    const customData = req.body.customData;
+    const message = req.body.message;
     const { message_body, agente } = customData;
+
+    // Mapear message.type numérico a string (valores verificados de GHL)
+    const typeMap = {
+      20: 'SMS',
+      18: 'IG',
+      11: 'FB'
+    };
+    const canal = typeof message.type === 'number'
+      ? (typeMap[message.type] || 'SMS')  // Fallback a SMS si no está en el map
+      : message.type;
 
     // Cliente viene del middleware (ya validado)
     const client = req.client;
@@ -36,11 +50,8 @@ async function handleAgentWebhook(req, res) {
       location_id,
       contact_id,
       agente,
-      canal: message.type
+      canal
     });
-
-    // Mapear canal (SMS/IG/FB desde message.type)
-    const canal = message.type; // SMS, IG, FB
 
     logger.info('🔍 Step 2: Processing message and attachments...');
 
