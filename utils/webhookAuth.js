@@ -93,14 +93,15 @@ async function validateWhatsAppWebhook(req, res, next) {
  */
 async function validateAgentWhitelist(req, res, next) {
   try {
-    const locationId = req.body?.location_id;
+    // GHL envía location.id en lugar de location_id directo
+    const locationId = req.body?.location_id || req.body?.location?.id;
 
     if (!locationId) {
       logger.warn('Agent webhook missing location_id', {
         ip: req.ip,
         body: req.body
       });
-      return res.status(400).json({ error: 'Missing location_id' });
+      return res.status(400).json({ error: 'Missing location_id or location.id' });
     }
 
     // Verificar que el locationId existe en BD (whitelist)
